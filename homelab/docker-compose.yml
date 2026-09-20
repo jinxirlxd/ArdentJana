@@ -1,0 +1,217 @@
+networks:
+  homelab:
+    driver: bridge
+volumes:
+  vaultwarden_data: null
+  homebridge_data:
+    external: true
+  uptime_kuma_data: null
+  portainer_data: null
+  pihole_data: null
+  dnsmasq_data: null
+  filebrowser_data: null
+  beszel_data: null
+  beszel_agent_data: null
+  trilium_data: null
+  anki_data: null
+  navidrome_data: null
+  changedetection_data: null
+  kanboard_data: null
+  audiobookshelf_data: null
+services:
+  npm:
+    image: 'jc21/nginx-proxy-manager:2.13.7'
+    container_name: npm
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '81:81'
+      - '192.168.1.47:443:443'
+    volumes:
+      - ./npm_data:/data
+      - ./npm_letsencrypt:/etc/letsencrypt
+
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    ports:
+    - 8085:80
+    volumes:
+    - vaultwarden_data:/data
+    networks:
+    - homelab
+  homebridge:
+    image: homebridge/homebridge:latest
+    container_name: homebridge
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+    - homebridge_data:/homebridge
+    environment:
+    - PUID=1000
+    - PGID=1000
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: uptime-kuma
+    restart: unless-stopped
+    ports:
+    - 3001:3001
+    volumes:
+    - uptime_kuma_data:/app/data
+    networks:
+    - homelab
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    security_opt:
+    - no-new-privileges:true
+    ports:
+    - 9000:9000
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    - portainer_data:/data
+    networks:
+    - homelab
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    ports:
+    - 53:53/tcp
+    - 53:53/udp
+    - 8088:80
+    volumes:
+    - pihole_data:/etc/pihole
+    - dnsmasq_data:/etc/dnsmasq.d
+    environment:
+    - TZ=America/Chicago
+    networks:
+    - homelab
+  filebrowser:
+    image: ghcr.io/gtsteffaniak/filebrowser:stable-slim
+    container_name: filebrowser
+    restart: unless-stopped
+    ports:
+    - 8080:80
+    volumes:
+    - /home/jarvisv3/my_files:/srv/Local_Files
+    - /mnt/usb_storage:/srv/USB_Drive
+    - ./filebrowser_data:/home/filebrowser/data
+    networks:
+    - homelab
+  beszel:
+    image: henrygd/beszel:latest
+    container_name: beszel
+    restart: unless-stopped
+    ports:
+    - 8090:8090
+    volumes:
+    - beszel_data:/beszel_data
+    networks:
+    - homelab
+  beszel-agent:
+    image: henrygd/beszel-agent:latest
+    container_name: beszel-agent
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+    - PORT=45876
+    - KEY=your-beszel-public-key-here
+  watchdog:
+    image: willfarrell/autoheal:latest
+    container_name: watchdog
+    restart: unless-stopped
+    volumes:
+    - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+    - homelab
+  shairport-sync:
+    image: mikebrady/shairport-sync:latest
+    container_name: shairport-sync
+    restart: unless-stopped
+    network_mode: host
+    cap_add:
+    - SYS_NICE
+    devices:
+    - /dev/snd
+    command: -a "Jarvis-Pi"
+  trilium:
+    image: triliumnext/trilium:latest
+    container_name: trilium
+    restart: unless-stopped
+    ports:
+    - 8082:8080
+    volumes:
+    - trilium_data:/home/node/trilium-data
+    networks:
+    - homelab
+  anki-sync-server:
+    image: ghcr.io/f7zorn/anki-sync-server:latest
+    environment:
+    - SYNC_USER1=${HOMELAB_SYNC_CREDS}
+    container_name: anki-sync-server
+    restart: unless-stopped
+    ports:
+    - 27701:27701
+    volumes:
+    - anki_data:/config
+    networks:
+    - homelab
+  navidrome:
+    image: deluan/navidrome:latest
+    environment:
+    - SYNC_USER1=${HOMELAB_SYNC_CREDS}
+    - ND_SCANSCHEDULE=1h
+    container_name: navidrome
+    restart: unless-stopped
+    ports:
+    - 4533:4533
+    volumes:
+    - navidrome_data:/data
+    - /home/jarvisv3/music:/music:ro
+    networks:
+    - homelab
+  changedetection:
+    image: dgtlmoon/changedetection.io:latest
+    environment:
+    - SYNC_USER1=${HOMELAB_SYNC_CREDS}
+    - SYNC_USER1=${HOMELAB_SYNC_CREDS}
+    container_name: changedetection
+    restart: unless-stopped
+    ports:
+    - 5002:5000
+    volumes:
+    - changedetection_data:/datastore
+    networks:
+    - homelab
+  kanboard:
+    image: kanboard/kanboard:latest
+    environment:
+    - SYNC_USER1=${HOMELAB_SYNC_CREDS}
+    - SYNC_USER1=${HOMELAB_SYNC_CREDS}
+    container_name: kanboard
+    restart: unless-stopped
+    ports:
+    - 8087:80
+    volumes:
+    - kanboard_data:/var/www/app/data
+    networks:
+    - homelab
+  audiobookshelf:
+    image: advplyr/audiobookshelf:2.7.2
+    environment:
+    - SYNC_USER1=${HOMELAB_SYNC_CREDS}
+    - SYNC_USER1=${HOMELAB_SYNC_CREDS}
+    container_name: audiobookshelf
+    restart: unless-stopped
+    ports:
+    - 13378:80
+    volumes:
+    - audiobookshelf_data:/audiobookshelf
+    - /home/jarvisv3/audiobooks:/audiobooks:ro
+    networks:
+    - homelab
